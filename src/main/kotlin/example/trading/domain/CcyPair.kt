@@ -1,7 +1,3 @@
 package example.trading.domain
 
-/**
- * Created by keithh on 1/29/16.
- */
-class CcyPair {
-}
+class CcyPair(val left: Ccy, val right: Ccy)

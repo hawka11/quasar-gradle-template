@@ -1,14 +1,10 @@
 package testgrp;
 
-import java.util.concurrent.ExecutionException;
-
-import co.paralleluniverse.strands.SuspendableCallable;
-import co.paralleluniverse.strands.SuspendableRunnable;
+import co.paralleluniverse.fibers.Fiber;
 import co.paralleluniverse.strands.channels.Channels;
 import co.paralleluniverse.strands.channels.IntChannel;
 
-import co.paralleluniverse.fibers.Fiber;
-import co.paralleluniverse.fibers.SuspendExecution;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Increasing-Echo Quasar Example
@@ -20,12 +16,12 @@ public class QuasarIncreasingEchoApp {
         final IntChannel increasingToEcho = Channels.newIntChannel(0); // Synchronizing channel (buffer = 0)
         final IntChannel echoToIncreasing = Channels.newIntChannel(0); // Synchronizing channel (buffer = 0)
 
-        Fiber<Integer> increasing = new Fiber<>("INCREASER", new SuspendableCallable<Integer>() { @Override public Integer run() throws SuspendExecution, InterruptedException {
+        Fiber<Integer> increasing = new Fiber<>("INCREASER", () -> {
             ////// The following is enough to test instrumentation of synchronizing methods
-            // synchronized(new Object()) {}
+             //synchronized(new Object()) {}
 
             int curr = 0;
-            for (int i = 0; i < 10 ; i++) {
+            for (int i = 0; i < 10; i++) {
                 Fiber.sleep(1000);
                 System.out.println("INCREASER sending: " + curr);
                 increasingToEcho.send(curr);
@@ -37,9 +33,9 @@ public class QuasarIncreasingEchoApp {
             System.out.println("INCREASER closing channel and exiting");
             increasingToEcho.close();
             return curr;
-        } }).start();
+        }).start();
 
-        Fiber<Void> echo = new Fiber<Void>("ECHO", new SuspendableRunnable() { @Override public void run() throws SuspendExecution, InterruptedException {
+        Fiber<Void> echo = new Fiber<Void>("ECHO", () -> {
             Integer curr;
             while (true) {
                 Fiber.sleep(1000);
@@ -55,14 +51,12 @@ public class QuasarIncreasingEchoApp {
                     return;
                 }
             }
-        } }).start();
+        }).start();
 
         try {
             increasing.join();
             echo.join();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
+        } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
         }
 

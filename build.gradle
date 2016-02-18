@@ -6,11 +6,15 @@ version             = '0.2.0'
 status              = 'integration'
 description         = 'TODO - Pls. edit - Gradle bootstrap project for Quasar'
 
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.9'
+}
+
 ext.classifier      = ':jdk8' // ':'
 sourceCompatibility = 1.8     // 1.7
 targetCompatibility = 1.8     // 1.7
 
-ext.quasarVer       = '0.7.3'
+ext.quasarVer       = '0.7.4'
 ext.junitVer        = '4.12'
 
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
@@ -21,24 +25,56 @@ configurations {
 
 configurations.all {
     resolutionStrategy {
-        failOnVersionConflict()
+        //failOnVersionConflict()
     }
 }
 
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVer}"
+    }
+}
+
+apply plugin: "kotlin"
+
+classes {
+    doLast {
+        scanAndInstrument(sourceSets.main, [configurations.provided, configurations.runtime])
+    }
+}
+
+sourceSets {
+    main.java.srcDirs += 'src/main/kotlin'
+}
+
 repositories {
-//    mavenLocal()
+    mavenLocal()
     mavenCentral()
-//    maven { url "https://oss.sonatype.org/content/repositories/releases" }
-//    maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
+    maven { url "https://oss.sonatype.org/content/repositories/releases" }
+    maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
 //    maven { url 'https://maven.java.net/content/repositories/snapshots' }
 }
 
 dependencies {
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlinVer}"
+    compile "org.jetbrains.kotlin:kotlin-reflect:$kotlinVer"
     compile "co.paralleluniverse:quasar-core:${quasarVer}${classifier}"
+    compile "co.paralleluniverse:quasar-kotlin:${quasarVer}"
 
     quasar "co.paralleluniverse:quasar-core:${quasarVer}${classifier}@jar"
 
+    //compile ("co.paralleluniverse:quasar-galaxy:${quasarVer}")
+
     testCompile "junit:junit:$junitVer"
+    testCompile "org.jetbrains.kotlin:kotlin-test:${kotlinVer}"
+
+    testCompile ('org.gridkit.lab:telecontrol-ssh:0.7.24'){
+        exclude group: 'org.ow2.asm', module: '*'
+        exclude group: 'org.slf4j', module: '*'
+    }
 }
 
 test {
@@ -67,10 +103,6 @@ tasks.withType(Test) {
 }
 
 mainClassName = "testgrp.QuasarIncreasingEchoApp"
-
-task wrapper(type: Wrapper) {
-    gradleVersion = '2.3'
-}
 
 if (project.hasProperty('method')) {
     apply from: "gradle/${project.getProperty('method')}.gradle"

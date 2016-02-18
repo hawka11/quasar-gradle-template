@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 
 class KotlinRechargeActorTest {
 
-    fun pathToResource(name: String): String {
+    /*fun pathToResource(name: String): String {
         return ClassLoader.getSystemClassLoader().getResource(name)!!.path
     }
 
@@ -25,8 +25,9 @@ class KotlinRechargeActorTest {
         System.setProperty("galaxy.multicast.address", "225.0.0.1")
         System.setProperty("galaxy.multicast.port", Integer.toString(7050))
         System.setProperty("galaxy.zkServers", "127.0.0.1:2181")
+        //System.setProperty("co.paralleluniverse.galaxy.autoGoOnline", "true")
         // System.setProperty("galaxy.ip_server_port", "127.0.0.1:2181")
-    }
+    }*/
 
     var i = 0
 
