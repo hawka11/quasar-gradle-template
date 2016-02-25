@@ -1,9 +1,9 @@
 package example.trading.api
 
-import co.paralleluniverse.actors.Actor
 import co.paralleluniverse.actors.ActorRef
 import co.paralleluniverse.actors.behaviors.RequestReplyHelper
 import co.paralleluniverse.fibers.Fiber
+import co.paralleluniverse.kotlin.Actor
 import example.trading.InFlightTradeActor
 import example.trading.domain.CcyPair
 

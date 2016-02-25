@@ -2,6 +2,9 @@ package testgrp
 
 import co.paralleluniverse.actors.ActorRef
 import co.paralleluniverse.actors.ActorRegistry
+import co.paralleluniverse.actors.ActorSpec
+import co.paralleluniverse.actors.behaviors.Supervisor
+import co.paralleluniverse.actors.behaviors.SupervisorActor
 import co.paralleluniverse.fibers.Fiber
 import co.paralleluniverse.fibers.Suspendable
 import co.paralleluniverse.kotlin.Actor
@@ -29,81 +32,105 @@ class KotlinRechargeActorTest {
         // System.setProperty("galaxy.ip_server_port", "127.0.0.1:2181")
     }*/
 
-    var i = 0
+    class RechargeActor : Actor() {
+
+        var i = 0
+        val _this = this
+        val requested = arrayListOf<String>()
+        val confirmed = arrayListOf<String>()
+
+
+        val finalState: (Any) -> Any? = @Suspendable {
+            println("ignoring (in final): $it")
+            i += 1
+            if ((i % 2) == 0) {
+                Strand.sleep(1000)
+                //throw RuntimeException("fdsafdafda")
+                defaultReceive(_this.finalState)
+            } else {
+                defer()
+
+            }
+        }
+
+        val requestedState: (Any) -> Any? = @Suspendable {
+
+            when (it) {
+                is Event.Confirm -> {
+                    println("confirmed: ${it.pin}")
+                    confirmed.add(it.pin)
+
+                    if (confirmed.size == requested.size)
+                        defaultReceive(finalState) else
+                        receive(2, TimeUnit.SECONDS, _this.requestedState)
+                }
+                else -> defaultHandle(it, _this.requestedState)
+            }
+        }
+
+        val initialState: (Any) -> Any? = @Suspendable {
+
+            when (it) {
+                is Event.Recharge -> {
+                    println("recharging: ${it.pins}")
+                    //throw RuntimeException("fdsafdafda")
+                    requested.addAll(it.pins)
+                    defaultReceive(requestedState)
+                }
+                else -> defaultHandle(it, _this.initialState)
+            }
+        }
+
+        @Suspendable private fun defaultHandle(event: Any, f: (Any) -> Any?) {
+            when (event) {
+                is Timeout -> {
+                    println("timed-out")
+                    defaultReceive(finalState)
+                }
+                else -> {
+                    println("ignoring: $event")
+                    defaultReceive(f)
+                }
+            }
+        }
+
+        @Suspendable override fun doRun() {
+            println("do run main actor")
+            this.register("test")
+            defaultReceive(initialState)
+        }
+
+        @Suspendable private fun RechargeActor.defaultReceive(proc: (Any) -> Any?) = receive(1, TimeUnit.SECONDS, proc)
+    }
 
     @Test
     fun test() {
-
-        spawnActor("test", object : Actor() {
-
-            val _this = this
-
-            val requested = arrayListOf<String>()
-            val confirmed = arrayListOf<String>()
-
-            val finalState: (Any) -> Any? = @Suspendable {
-                println("ignoring (in final): $it")
-                i += 1
-                if ((i % 2) == 0) {
-                    Strand.sleep(1000)
-                    receive(_this.finalState)
-                } else {
-                    defer()
-                }
+        object : SupervisorActor("sup", SupervisorActor.RestartStrategy.ONE_FOR_ONE) {
+            override fun init() {
+                //super.init()
+                val c: ActorRef<Any?> =
+                        addChild(Supervisor.ChildSpec("test", Supervisor.ChildMode.PERMANENT, 5, 5L, TimeUnit.SECONDS, 10L, ActorSpec.of(RechargeActor::class.java)))
             }
+        }.spawn();
 
-            val requestedState: (Any) -> Any? = @Suspendable {
-                when (it) {
-                    is Event.Confirm -> {
-                        println("confirmed: ${it.pin}")
-                        confirmed.add(it.pin)
-
-                        if (confirmed.size == requested.size)
-                            receive(finalState) else
-                            receive(2, TimeUnit.SECONDS, _this.requestedState)
-                    }
-                    else -> defaultHandle(it)
-                }
-            }
-
-            val initialState: (Any) -> Any? = @Suspendable {
-                when (it) {
-                    is Event.Recharge -> {
-                        println("recharging: ${it.pins}")
-                        requested.addAll(it.pins)
-                        receive(requestedState)
-                    }
-                    else -> defaultHandle(it)
-                }
-            }
-
-            private fun defaultHandle(event: Any) {
-                when (event) {
-                    is Timeout -> {
-                        println("timed-out")
-                        receive(finalState)
-                    }
-                    else -> println("ignoring: $event")
-                }
-            }
-
-            @Suspendable override fun doRun() = receive (initialState)
-
-        })
 
         fun get() = ActorRegistry.getActor<ActorRef<Any>>("test")
 
         spawnActor("requester", object : Actor() {
             @Suspendable override fun doRun(): Any? {
                 Fiber.sleep(1000)
-                get().send(Event.Recharge(listOf("2", "5")))
+                get().send(Event.Recharge(listOf("2")))
+                Fiber.sleep(1000)
+                get().send(Event.Recharge(listOf("5")))
+                Fiber.sleep(1000)
+                get().send(Event.Recharge(listOf("6")))
                 return null;
             }
         })
 
         spawnActor("confirmer", object : Actor() {
             @Suspendable override fun doRun(): Any? {
-                Fiber.sleep(1500)
+                Fiber.sleep(4000)
                 get().send(Event.Confirm("2"))
                 Fiber.sleep(1500)
                 get().send(Event.Confirm("5"))
